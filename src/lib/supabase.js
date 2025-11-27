@@ -47,11 +47,14 @@ export const database = {
   },
 
   async getStudentProfile(studentId) {
+    console.log('Fetching student profile for ID:', studentId)
     const { data, error } = await supabase
       .from('students')
       .select('*')
       .eq('id', studentId)
-      .single()
+      .maybeSingle()
+    
+    console.log('Student profile query result:', { data, error, studentId })
     return { data, error }
   },
 

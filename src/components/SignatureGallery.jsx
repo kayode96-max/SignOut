@@ -33,29 +33,22 @@ const SignatureGallery = ({ studentId, showPrivateDetails = false }) => {
       setLoading(true)
       setError('')
 
-      let data = []
-      
-      // Check if this is a demo student
-      if (studentId === 'test-student-id' || studentId?.includes('demo')) {
-        // Load demo signatures from localStorage
-        const demoSignatures = JSON.parse(localStorage.getItem(`demo-signatures-${studentId}`) || '[]')
-        data = showPrivateDetails ? demoSignatures : demoSignatures.map(sig => ({
-          id: sig.id,
-          signature_url: sig.signature_url,
-          created_at: sig.created_at
-        }))
-      } else {
-        // Load from database
-        const result = showPrivateDetails 
-          ? await database.getSignatures(studentId)
-          : await database.getPublicSignatures(studentId)
+      // Load signatures from database
+      console.log('Loading signatures for student:', studentId)
+      const result = showPrivateDetails 
+        ? await database.getSignatures(studentId)
+        : await database.getPublicSignatures(studentId)
 
-        if (result.error) {
-          setError('Failed to load signatures')
-          return
-        }
-        data = result.data || []
+      console.log('Signatures query result:', result)
+
+      if (result.error) {
+        console.error('Failed to load signatures:', result.error)
+        setError(`Failed to load signatures: ${result.error.message}`)
+        return
       }
+      
+      const data = result.data || []
+      console.log('Loaded signatures:', data)
 
       const startIndex = pageNum * ITEMS_PER_PAGE
       const endIndex = startIndex + ITEMS_PER_PAGE

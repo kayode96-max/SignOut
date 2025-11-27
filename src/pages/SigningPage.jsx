@@ -7,7 +7,7 @@ import SignatureTools from '../components/SignatureTools'
 import TextSignatureInput from '../components/TextSignatureInput'
 import SignatureGallery from '../components/SignatureGallery'
 import ThankYouPopup from '../components/ThankYouPopup'
-import { database, storage } from '../lib/supabase'
+import { database, storage, supabase } from '../lib/supabase'
 
 const SigningPage = () => {
   const { studentId } = useParams()
@@ -35,91 +35,52 @@ const SigningPage = () => {
   // Load student profile
   useEffect(() => {
     const loadStudent = async () => {
+      if (!studentId) {
+        setLoading(false)
+        setError('No student ID provided')
+        return
+      }
+
       try {
         setLoading(true)
         setError('')
-        setStudent(null) // Clear previous student data to prevent caching
         
         console.log('Loading student profile for ID:', studentId)
-        
-        // Add timeout to prevent infinite loading
-        const timeoutId = setTimeout(() => {
-          console.warn('Student loading timeout')
-          setLoading(false)
-          setError('Loading timeout. Please try again.')
-        }, 10000)
-        
         const { data, error: fetchError } = await database.getStudentProfile(studentId)
-        clearTimeout(timeoutId)
         console.log('Student profile result:', { data, error: fetchError })
         
         if (fetchError || !data) {
-          // Check if this looks like a UUID (real student) vs demo ID
-          const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(studentId)
-          
-          if (isUUID) {
-            // Real student ID but not found in database - create a mock student for demo
-            console.log('Creating mock student for UUID:', studentId)
-            const mockStudent = {
-              id: studentId,
-              email: `student-${studentId.substring(0, 8)}@example.com`,
-              name: `Student ${studentId.substring(0, 8)}`,
-              theme: {
-                background: 'gradient-blue',
-                primaryColor: '#3b82f6',
-                secondaryColor: '#1d4ed8'
-              },
-              popup_config: {
-                title: 'Thank You!',
-                message: 'Thank you for signing my digital sign-out page! 🎓',
-                backgroundColor: '#f0f9ff',
-                showConfetti: true
-              }
+          // If student not found, create a basic student object to allow signing
+          console.log('Student not found, creating basic profile for:', studentId)
+          const basicStudent = {
+            id: studentId,
+            name: `Student ${studentId.substring(0, 8)}`,
+            email: `student@example.com`,
+            theme: {
+              background: 'gradient-blue',
+              primaryColor: '#3b82f6',
+              secondaryColor: '#1d4ed8'
+            },
+            popup_config: {
+              title: 'Thank You!',
+              message: 'Thank you for signing my digital sign-out page! 🎓',
+              backgroundColor: '#f0f9ff',
+              showConfetti: true
             }
-            setStudent(mockStudent)
-          } else {
-            // Demo/test student - create mock
-            const mockStudent = {
-              id: studentId,
-              name: studentId === 'test-student-id' ? 'Demo Student' : `Student ${studentId}`,
-              email: `${studentId}@demo.com`,
-              theme: {
-                background: 'gradient-blue',
-                primaryColor: '#3b82f6',
-                secondaryColor: '#1d4ed8'
-              },
-              popup_config: {
-                title: 'Thank You!',
-                message: 'Thank you for signing my digital sign-out page! 🎓',
-                backgroundColor: '#f0f9ff',
-                showConfetti: true
-              }
-            }
-            setStudent(mockStudent)
           }
+          setStudent(basicStudent)
         } else {
           setStudent(data)
         }
       } catch (err) {
-        console.error('Error in loadStudent:', err)
+        console.error('Error loading student:', err)
         setError('Failed to load page')
-        setStudent(null)
       } finally {
         setLoading(false)
       }
     }
 
-    if (studentId) {
-      loadStudent()
-    } else {
-      setLoading(false)
-      setError('No student ID provided')
-    }
-    
-    // Cleanup function
-    return () => {
-      setLoading(false)
-    }
+    loadStudent()
   }, [studentId])
 
   const handleSubmit = async (e) => {
@@ -130,7 +91,6 @@ const SigningPage = () => {
       return
     }
 
-    console.log('Canvas actions:', canvasActions) // Debug log
     if (!canvasActions || canvasActions.isEmpty) {
       setError('Please add your signature')
       return
@@ -140,102 +100,88 @@ const SigningPage = () => {
     setError('')
 
     try {
-      // Check if this is a demo student or real student
-      const isDemo = studentId === 'test-student-id' || 
-                     !student?.email?.includes('@') || 
-                     student?.email?.includes('@demo.com') ||
-                     student?.email?.includes('@example.com') ||
-                     !student?.created_at // Mock students don't have created_at from database
-      
-      if (isDemo) {
-        // Export signature for demo
-        const blob = await canvasActions.exportAsBlob()
-        if (!blob) {
-          throw new Error('Failed to export signature')
-        }
-        
-        // Create a local URL for the signature
-        const signatureUrl = URL.createObjectURL(blob)
-        
-        // Store demo signature in localStorage
-        const demoSignature = {
-          id: Date.now(),
-          student_id: studentId,
-          signature_url: signatureUrl,
-          signatory_name: signatoryName.trim(),
-          signatory_note: signatoryNote.trim() || null,
-          created_at: new Date().toISOString()
-        }
-        
-        const existingSignatures = JSON.parse(localStorage.getItem(`demo-signatures-${studentId}`) || '[]')
-        existingSignatures.unshift(demoSignature)
-        localStorage.setItem(`demo-signatures-${studentId}`, JSON.stringify(existingSignatures.slice(0, 10))) // Keep only last 10
-        
-        console.log('Demo signature saved locally:', demoSignature)
-        
-        // Simulate processing delay
-        await new Promise(resolve => setTimeout(resolve, 800))
-      } else {
-        // For real students, ensure the student exists in database first
-        console.log('Ensuring student exists in database:', studentId)
-        
-        // Try to create student record if it doesn't exist
-        if (!student?.created_at) {
-          console.log('Creating student record in database...')
-          try {
-            const { data: createStudentData, error: createStudentError } = await database.createStudentProfile({
-              id: studentId,
-              email: student?.email || `student-${studentId}@example.com`,
-              user_metadata: { full_name: student?.name || 'Student' }
-            })
-            
-            if (createStudentError) {
-              console.error('Failed to create student:', createStudentError)
-              // Continue anyway - student might already exist
-            } else {
-              console.log('Student created successfully:', createStudentData)
+      // Save signature to Supabase database
+      console.log('Saving signature for student:', studentId)
+      // Export signature as blob
+      const blob = await canvasActions.exportAsBlob()
+      if (!blob) {
+        throw new Error('Failed to export signature')
+      }
+
+      // Generate unique filename
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.png`
+
+      // Upload to Supabase Storage
+      console.log('Uploading signature to storage...')
+      const { data: uploadData, error: uploadError } = await storage.uploadSignature(blob, fileName)
+      if (uploadError) {
+        console.error('Storage upload error:', uploadError)
+        throw new Error(`Failed to upload signature: ${uploadError.message}`)
+      }
+
+      // Get public URL
+      const signatureUrl = storage.getSignatureUrl(fileName)
+      console.log('Signature uploaded, URL:', signatureUrl)
+
+      // Ensure student exists in database before creating signature
+      if (!student?.created_at) {
+        console.log('Creating student record in database first...')
+        try {
+          const studentData = {
+            id: studentId,
+            email: student?.email || `student-${studentId}@example.com`,
+            name: student?.name || `Student ${studentId}`,
+            theme: student?.theme || {
+              background: 'gradient-blue',
+              primaryColor: '#3b82f6',
+              secondaryColor: '#1d4ed8'
+            },
+            popup_config: student?.popup_config || {
+              title: 'Thank You!',
+              message: 'Thank you for signing my digital sign-out page! 🎓',
+              backgroundColor: '#f0f9ff',
+              showConfetti: true
             }
-          } catch (err) {
-            console.error('Error creating student:', err)
-            // Continue anyway
           }
-        }
-        
-        // Export signature as blob
-        const blob = await canvasActions.exportAsBlob()
-        if (!blob) {
-          throw new Error('Failed to export signature')
-        }
-
-        // Generate unique filename
-        const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.png`
-
-        // Upload to Supabase Storage
-        const { data: uploadData, error: uploadError } = await storage.uploadSignature(blob, fileName)
-        if (uploadError) {
-          throw new Error('Failed to upload signature')
-        }
-
-        // Get public URL
-        const signatureUrl = storage.getSignatureUrl(fileName)
-
-        // Create signature record
-        const signatureData = {
-          student_id: studentId,
-          signature_url: signatureUrl,
-          signatory_name: signatoryName.trim(),
-          signatory_note: signatoryNote.trim() || null,
-        }
-
-        console.log('Attempting to create signature:', signatureData)
-        const { data, error: createError } = await database.createSignature(signatureData)
-        console.log('Database response:', { data, error: createError })
-        
-        if (createError) {
-          console.error('Database error details:', createError)
-          throw new Error(`Failed to save signature: ${createError.message}`)
+          
+          const { data: studentCreateData, error: studentError } = await supabase
+            .from('students')
+            .upsert([studentData])
+            .select()
+          
+          if (studentError) {
+            console.error('Failed to create/update student:', studentError)
+          } else {
+            console.log('Student created/updated:', studentCreateData)
+          }
+        } catch (err) {
+          console.error('Error creating student:', err)
         }
       }
+
+      // Create signature record with explicit field validation
+      const signatureData = {
+        student_id: studentId,
+        signature_url: signatureUrl,
+        signatory_name: signatoryName.trim(),
+        signatory_note: signatoryNote.trim() || null
+      }
+
+      // Validate required fields
+      if (!signatureData.student_id || !signatureData.signature_url || !signatureData.signatory_name) {
+        throw new Error('Missing required signature data')
+      }
+
+      console.log('Creating signature record with data:', signatureData)
+      const { data, error: createError } = await database.createSignature(signatureData)
+      console.log('Signature creation result:', { data, error: createError })
+      
+      if (createError) {
+        console.error('Database error details:', createError)
+        throw new Error(`Failed to save signature: ${createError.message}`)
+      }
+      
+      console.log('Signature saved successfully:', data)
 
       // Clear form and canvas
       setSignatoryName('')
