@@ -50,25 +50,8 @@ const SigningPage = () => {
         console.log('Student profile result:', { data, error: fetchError })
         
         if (fetchError || !data) {
-          // If student not found, create a basic student object to allow signing
-          console.log('Student not found, creating basic profile for:', studentId)
-          const basicStudent = {
-            id: studentId,
-            name: `Student ${studentId.substring(0, 8)}`,
-            email: `student@example.com`,
-            theme: {
-              background: 'gradient-blue',
-              primaryColor: '#3b82f6',
-              secondaryColor: '#1d4ed8'
-            },
-            popup_config: {
-              title: 'Thank You!',
-              message: 'Thank you for signing my digital sign-out page! 🎓',
-              backgroundColor: '#f0f9ff',
-              showConfetti: true
-            }
-          }
-          setStudent(basicStudent)
+          setError('Student not found. Please check the link and try again.')
+          setStudent(null)
         } else {
           setStudent(data)
         }
@@ -122,42 +105,6 @@ const SigningPage = () => {
       // Get public URL
       const signatureUrl = storage.getSignatureUrl(fileName)
       console.log('Signature uploaded, URL:', signatureUrl)
-
-      // Ensure student exists in database before creating signature
-      if (!student?.created_at) {
-        console.log('Creating student record in database first...')
-        try {
-          const studentData = {
-            id: studentId,
-            email: student?.email || `student-${studentId}@example.com`,
-            name: student?.name || `Student ${studentId}`,
-            theme: student?.theme || {
-              background: 'gradient-blue',
-              primaryColor: '#3b82f6',
-              secondaryColor: '#1d4ed8'
-            },
-            popup_config: student?.popup_config || {
-              title: 'Thank You!',
-              message: 'Thank you for signing my digital sign-out page! 🎓',
-              backgroundColor: '#f0f9ff',
-              showConfetti: true
-            }
-          }
-          
-          const { data: studentCreateData, error: studentError } = await supabase
-            .from('students')
-            .upsert([studentData])
-            .select()
-          
-          if (studentError) {
-            console.error('Failed to create/update student:', studentError)
-          } else {
-            console.log('Student created/updated:', studentCreateData)
-          }
-        } catch (err) {
-          console.error('Error creating student:', err)
-        }
-      }
 
       // Create signature record with explicit field validation
       const signatureData = {
@@ -251,11 +198,20 @@ const SigningPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
+          {student?.profile_pic && (
+            <div className="w-32 h-32 mx-auto mb-6 rounded-full border-4 border-white/30 shadow-lg overflow-hidden">
+              <img
+                src={student.profile_pic}
+                alt={student.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
             {student?.name}'s Sign-Out Page
           </h1>
-          <p className="text-xl text-white/90 mb-6">
-            Leave your signature and a message to wish me well on my next journey! 🎓
+          <p className="text-xl text-white/90 mb-6 max-w-2xl mx-auto">
+            {student?.theme?.introMessage || "Leave your signature and a message to wish me well on my next journey! 🎓"}
           </p>
           
           <div className="flex items-center justify-center gap-4 text-white/80">
