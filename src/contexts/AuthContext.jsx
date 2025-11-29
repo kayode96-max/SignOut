@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
         
         if (session) {
           setUser(session.user)
-          await loadStudentProfile(session.user.id)
+          await loadStudentProfile(session.user.id, session.user)
         }
       } catch (error) {
         console.error('Error getting session:', error)
@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
       async (event, session) => {
         setUser(session?.user ?? null)
         if (session?.user) {
-          await loadStudentProfile(session.user.id)
+          await loadStudentProfile(session.user.id, session.user)
         } else {
           setStudentProfile(null)
         }
@@ -62,7 +62,7 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe()
   }, [])
 
-  const loadStudentProfile = async (userId) => {
+  const loadStudentProfile = async (userId, currentUser) => {
     try {
       console.log('Loading student profile for user:', userId)
       
@@ -77,13 +77,18 @@ export const AuthProvider = ({ children }) => {
       
       console.log('Student profile result:', { data, error })
       
-      if (error && error.code === 'PGRST116') {
+      // With maybeSingle(), if no row is found, data is null and error is null
+      // We also check for PGRST116 just in case
+      if ((!data && !error) || (error && error.code === 'PGRST116')) {
         // Profile doesn't exist, create it
         console.log('Creating new student profile...')
+        // Use the passed currentUser or fall back to state user (which might be stale, hence currentUser preference)
+        const userToUse = currentUser || user
+
         const { data: newProfile } = await database.createStudentProfile({ 
           id: userId, 
-          email: user?.email || 'unknown@example.com',
-          user_metadata: { full_name: user?.user_metadata?.full_name || 'User' }
+          email: userToUse?.email || 'unknown@example.com',
+          user_metadata: { full_name: userToUse?.user_metadata?.full_name || 'User' }
         })
         setStudentProfile(newProfile?.[0] || null)
       } else if (!error) {
