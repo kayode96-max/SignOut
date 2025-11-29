@@ -98,7 +98,7 @@ BEGIN
     );
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Create trigger to automatically generate thank you cards
 CREATE TRIGGER trigger_create_thank_you_card

@@ -83,8 +83,12 @@ const SigningPage = () => {
     setError('')
 
     try {
+      if (!student || !student.id) {
+        throw new Error('Student profile not loaded correctly')
+      }
+
       // Save signature to Supabase database
-      console.log('Saving signature for student:', studentId)
+      console.log('Saving signature for student:', student.id)
       // Export signature as blob
       const blob = await canvasActions.exportAsBlob()
       if (!blob) {
@@ -107,8 +111,9 @@ const SigningPage = () => {
       console.log('Signature uploaded, URL:', signatureUrl)
 
       // Create signature record with explicit field validation
+      // Use student.id from the loaded profile to ensure it exists and matches the correct format
       const signatureData = {
-        student_id: studentId,
+        student_id: student.id,
         signature_url: signatureUrl,
         signatory_name: signatoryName.trim(),
         signatory_note: signatoryNote.trim() || null
