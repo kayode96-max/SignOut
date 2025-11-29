@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Palette, Check, Loader2, Save, Upload, User, Image as ImageIcon } from 'lucide-react'
+import { Palette, Check, Loader2, Save, Upload, User, Image as ImageIcon, MessageSquare } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 import { storage } from '../lib/supabase'
 

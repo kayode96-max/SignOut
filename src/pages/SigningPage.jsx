@@ -50,25 +50,8 @@ const SigningPage = () => {
         console.log('Student profile result:', { data, error: fetchError })
         
         if (fetchError || !data) {
-          // If student not found, create a basic student object to allow signing
-          console.log('Student not found, creating basic profile for:', studentId)
-          const basicStudent = {
-            id: studentId,
-            name: `Student ${studentId.substring(0, 8)}`,
-            email: `student@example.com`,
-            theme: {
-              background: 'gradient-blue',
-              primaryColor: '#3b82f6',
-              secondaryColor: '#1d4ed8'
-            },
-            popup_config: {
-              title: 'Thank You!',
-              message: 'Thank you for signing my digital sign-out page! 🎓',
-              backgroundColor: '#f0f9ff',
-              showConfetti: true
-            }
-          }
-          setStudent(basicStudent)
+          setError('Student not found. Please check the link and try again.')
+          setStudent(null)
         } else {
           setStudent(data)
         }
@@ -122,42 +105,6 @@ const SigningPage = () => {
       // Get public URL
       const signatureUrl = storage.getSignatureUrl(fileName)
       console.log('Signature uploaded, URL:', signatureUrl)
-
-      // Ensure student exists in database before creating signature
-      if (!student?.created_at) {
-        console.log('Creating student record in database first...')
-        try {
-          const studentData = {
-            id: studentId,
-            email: student?.email || `student-${studentId}@example.com`,
-            name: student?.name || `Student ${studentId}`,
-            theme: student?.theme || {
-              background: 'gradient-blue',
-              primaryColor: '#3b82f6',
-              secondaryColor: '#1d4ed8'
-            },
-            popup_config: student?.popup_config || {
-              title: 'Thank You!',
-              message: 'Thank you for signing my digital sign-out page! 🎓',
-              backgroundColor: '#f0f9ff',
-              showConfetti: true
-            }
-          }
-          
-          const { data: studentCreateData, error: studentError } = await supabase
-            .from('students')
-            .upsert([studentData])
-            .select()
-          
-          if (studentError) {
-            console.error('Failed to create/update student:', studentError)
-          } else {
-            console.log('Student created/updated:', studentCreateData)
-          }
-        } catch (err) {
-          console.error('Error creating student:', err)
-        }
-      }
 
       // Create signature record with explicit field validation
       const signatureData = {

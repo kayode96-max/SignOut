@@ -49,6 +49,9 @@ CREATE POLICY "Students can view their own profile" ON students
 CREATE POLICY "Students can update their own profile" ON students
     FOR UPDATE USING (auth.uid() = id);
 
+CREATE POLICY "Users can create their own profile" ON students
+    FOR INSERT WITH CHECK (auth.uid() = id);
+
 CREATE POLICY "Anyone can view basic student info for signing" ON students
     FOR SELECT USING (true);
 
