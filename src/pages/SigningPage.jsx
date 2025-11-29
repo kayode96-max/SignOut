@@ -251,11 +251,20 @@ const SigningPage = () => {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-12"
         >
+          {student?.profile_pic && (
+            <div className="w-32 h-32 mx-auto mb-6 rounded-full border-4 border-white/30 shadow-lg overflow-hidden">
+              <img
+                src={student.profile_pic}
+                alt={student.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
           <h1 className="text-4xl md:text-6xl font-bold text-white mb-4">
             {student?.name}'s Sign-Out Page
           </h1>
-          <p className="text-xl text-white/90 mb-6">
-            Leave your signature and a message to wish me well on my next journey! 🎓
+          <p className="text-xl text-white/90 mb-6 max-w-2xl mx-auto">
+            {student?.theme?.introMessage || "Leave your signature and a message to wish me well on my next journey! 🎓"}
           </p>
           
           <div className="flex items-center justify-center gap-4 text-white/80">

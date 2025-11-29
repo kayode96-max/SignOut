@@ -5,6 +5,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import SigningPage from './pages/SigningPage'
 import ThankYouCards from './pages/ThankYouCards'
+import LandingPage from './pages/LandingPage'
 import './index.css'
 
 function App() {
@@ -13,6 +14,7 @@ function App() {
       <Router>
         <Routes>
           {/* Public Routes */}
+          <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<Login />} />
           <Route path="/sign/:studentId" element={<SigningPage />} />
           
@@ -30,8 +32,7 @@ function App() {
           } />
           
           {/* Default Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>
     </AuthProvider>
