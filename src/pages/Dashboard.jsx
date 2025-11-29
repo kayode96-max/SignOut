@@ -13,8 +13,10 @@ import {
   Palette,
   MessageSquare,
   Download,
-  Share2
+  Share2,
+  Loader2
 } from 'lucide-react'
+import JSZip from 'jszip'
 import { useAuth } from '../contexts/AuthContext'
 import SignatureGallery from '../components/SignatureGallery'
 import ThemeSettings from '../components/ThemeSettings'
@@ -25,6 +27,7 @@ const Dashboard = () => {
   const { user, studentProfile, signOut } = useAuth()
   const [signatures, setSignatures] = useState([])
   const [loading, setLoading] = useState(true)
+  const [exporting, setExporting] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [copySuccess, setCopySuccess] = useState(false)
 
@@ -88,6 +91,60 @@ const Dashboard = () => {
       }
     } else {
       handleCopyLink()
+    }
+  }
+
+  const handleExportAll = async () => {
+    if (signatures.length === 0) return
+
+    try {
+      setExporting(true)
+      const zip = new JSZip()
+
+      // Create CSV content
+      const csvHeader = ['Date', 'Name', 'Message', 'Signature File'].join(',')
+      const csvRows = signatures.map(sig => {
+        const date = new Date(sig.created_at).toLocaleString()
+        const name = `"${sig.signatory_name.replace(/"/g, '""')}"`
+        const message = sig.signatory_note ? `"${sig.signatory_note.replace(/"/g, '""')}"` : '""'
+        const filename = `signature-${sig.id}.png`
+        return [date, name, message, filename].join(',')
+      })
+
+      zip.file('messages.csv', [csvHeader, ...csvRows].join('\n'))
+
+      // Create images folder
+      const imgFolder = zip.folder("signatures")
+
+      // Fetch and add images
+      const imagePromises = signatures.map(async (sig) => {
+        try {
+          const response = await fetch(sig.signature_url)
+          const blob = await response.blob()
+          imgFolder.file(`signature-${sig.id}.png`, blob)
+        } catch (err) {
+          console.error(`Failed to fetch image for ${sig.id}:`, err)
+        }
+      })
+
+      await Promise.all(imagePromises)
+
+      // Generate and download zip
+      const content = await zip.generateAsync({ type: 'blob' })
+      const url = window.URL.createObjectURL(content)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `sign-out-memories-${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+
+    } catch (err) {
+      console.error('Export failed:', err)
+      alert('Failed to export data. Please try again.')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -307,9 +364,17 @@ const Dashboard = () => {
               <div className="bg-white rounded-xl shadow-sm p-6">
                 <div className="flex justify-between items-center mb-6">
                   <h3 className="text-lg font-semibold text-gray-900">All Signatures</h3>
-                  <button className="flex items-center gap-2 btn-secondary">
-                    <Download className="w-4 h-4" />
-                    Export All
+                  <button
+                    onClick={handleExportAll}
+                    disabled={exporting || signatures.length === 0}
+                    className="flex items-center gap-2 btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {exporting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    {exporting ? 'Exporting...' : 'Export All'}
                   </button>
                 </div>
                 <SignatureGallery 
